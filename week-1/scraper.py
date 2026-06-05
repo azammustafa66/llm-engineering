@@ -12,8 +12,33 @@ headers = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
 }
 
-# Tags whose contents are noise for summarization (code, styling, media, forms).
 IRRELEVANT_TAGS = ["script", "style", "img", "input"]
+
+
+def clean_html(html: str | bytes) -> str:
+    """Strip a raw HTML document down to its title and visible text.
+
+    Removes scripts, styles, images and form inputs, then collapses the
+    remaining DOM into newline-separated, trimmed text. Use this to turn any
+    HTML source (from `requests`, Selenium, a file, ...) into a compact,
+    token-friendly string suitable for an LLM prompt.
+
+    Args:
+        html: The raw HTML markup to clean.
+
+    Returns:
+        The page title followed by its cleaned, visible text.
+    """
+    soup = BeautifulSoup(html, "html.parser")
+    title = soup.title.string if soup.title else "No title found"
+
+    # Strip out elements that don't contribute readable content.
+    for irrelevant_tag in soup(IRRELEVANT_TAGS):
+        irrelevant_tag.decompose()
+
+    # Collapse the remaining DOM into newline-separated, trimmed text.
+    text = soup.get_text(separator="\n", strip=True)
+    return f"Title: {title}\n\n{text}"
 
 
 def fetch_website_content(url: str) -> str:
@@ -29,16 +54,6 @@ def fetch_website_content(url: str) -> str:
     try:
         response = requests.get(url=url, headers=headers, timeout=10)
         response.raise_for_status()  # turn 4xx/5xx responses into exceptions
-
-        soup = BeautifulSoup(response.content, "html.parser")
-        title = soup.title.string if soup.title else "No title found"
-
-        # Strip out elements that don't contribute readable content.
-        for irrelevant_tag in soup(IRRELEVANT_TAGS):
-            irrelevant_tag.decompose()
-
-        # Collapse the remaining DOM into newline-separated, trimmed text.
-        text = soup.get_text(separator="\n", strip=True)
-        return f"Title: {title}\n\n{text}"
+        return clean_html(response.content)
     except Exception as e:
         return f"Error fetching content from {url}: {str(e)}"
