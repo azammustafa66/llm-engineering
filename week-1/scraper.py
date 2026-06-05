@@ -32,11 +32,9 @@ def clean_html(html: str | bytes) -> str:
     soup = BeautifulSoup(html, "html.parser")
     title = soup.title.string if soup.title else "No title found"
 
-    # Strip out elements that don't contribute readable content.
     for irrelevant_tag in soup(IRRELEVANT_TAGS):
         irrelevant_tag.decompose()
 
-    # Collapse the remaining DOM into newline-separated, trimmed text.
     text = soup.get_text(separator="\n", strip=True)
     return f"Title: {title}\n\n{text}"
 
@@ -53,7 +51,7 @@ def fetch_website_content(url: str) -> str:
     """
     try:
         response = requests.get(url=url, headers=headers, timeout=10)
-        response.raise_for_status()  # turn 4xx/5xx responses into exceptions
+        response.raise_for_status()  
         return clean_html(response.content)
     except Exception as e:
         return f"Error fetching content from {url}: {str(e)}"
